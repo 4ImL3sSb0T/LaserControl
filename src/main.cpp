@@ -3,9 +3,17 @@
 #include <imgui-SFML.h>
 #include <iostream>
 
+// #include "../backup/ImRadFixed.h"
+#include "Application.h"
+#include "serial/serial.h"
+#include "LaserControl.h"
+
 int main() {
+	auto* serial = new serial::Serial();
+	LaserControl laserControl;
+	
 	sf::RenderWindow window(sf::VideoMode(1200, 800), "Control Panel");
-	window.setFramerateLimit(60);
+	window.setFramerateLimit(30);
 
 	if (!ImGui::SFML::Init(window)) {
 		std::cout << "Failed to initialize ImGui!" << std::endl;
@@ -22,6 +30,7 @@ int main() {
 	);
 	io.FontDefault = myFont; // 设置为默认字体
 	
+	
 	if (!ImGui::SFML::UpdateFontTexture()) {
 		std::cout << "Failed to update font texture!" << std::endl;
 		return -1;
@@ -29,8 +38,9 @@ int main() {
 
 	ImGuiStyle& style = ImGui::GetStyle();
 	style.ScaleAllSizes(1.5f);
-
-	float test_value = 0;
+	// style.WindowRounding = 0.25f;
+	
+	application.Open();
 
 	while (window.isOpen()) {
 		sf::Event event{};
@@ -41,14 +51,16 @@ int main() {
 
 		ImGui::SFML::Update(window, deltaClock.restart());
 
-		ImGui::Begin("Control Panel");
-		ImGui::Text(reinterpret_cast<const char *>(u8"中文测试：你好，世界！"));
-		ImGui::SliderFloat("Test Value", &test_value, 0.0f, 1.0f);
-		ImGui::End();
+		// Render UI
+		application.Draw();
 
 		window.clear();
 		ImGui::SFML::Render(window);
 		window.display();
+
+		std::cout << "Machine State: " << application.machine_state << std::endl;
+		std::cout << LaserControl::EnumeratePortToString() << std::endl;
 	}
 	ImGui::SFML::Shutdown();
+	return 0;
 }

@@ -10,13 +10,21 @@ find_package(imgui CONFIG REQUIRED)
 find_package(ImGui-SFML CONFIG REQUIRED)
 find_package(OpenCV CONFIG REQUIRED)
 
+find_library(SERIAL_STATIC serial ${PROJECT_SOURCE_DIR}/lib/static)
+
 aux_source_directory(${PROJECT_SOURCE_DIR}/src SOURCES)
 
 # 生成可执行文件
-add_executable(LaserControl ${SOURCES})
+add_executable(LaserControl ${SOURCES} 
+        src/Application.cpp
+        src/LaserControl.cpp)
 
 target_include_directories(LaserControl PRIVATE
         ${PROJECT_SOURCE_DIR}/inc
+)
+
+target_link_libraries(LaserControl PRIVATE
+        ${SERIAL_STATIC}
 )
 
 target_link_libraries(LaserControl PRIVATE
