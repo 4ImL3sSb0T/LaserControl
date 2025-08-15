@@ -2,6 +2,9 @@
 // visit https://github.com/tpecholt/imrad
 
 #include "Application.h"
+#include <spdlog/spdlog.h>
+
+#include "serial/serial.h"
 
 Application application;
 
@@ -30,7 +33,7 @@ void Application::Draw()
         // TODO: Add Draw calls of dependent popup windows here
 
         /// @begin Child
-        ImGui::BeginChild("child1", { 680, 280 }, ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_NavFlattened, ImGuiWindowFlags_NoSavedSettings);
+        ImGui::BeginChild("child1", { 680, 264 }, ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_NavFlattened, ImGuiWindowFlags_NoSavedSettings);
         {
             /// @separator
 
@@ -52,14 +55,28 @@ void Application::Draw()
             /// @end Text
 
             /// @begin Button
-            ImGui::SameLine(0, 25 * ImGui::GetStyle().ItemSpacing.x);
-            ImGui::Button("OK", { 40, 0 });
+            ImGui::SameLine(0, 15 * ImGui::GetStyle().ItemSpacing.x);
+            if (ImGui::Button("OK", { 40, 0 })) {
+	            if (selected_com != "NONE") {
+	            	if (LaserControl::getInstance().OpenSerialPort(selected_com, 115200) > 0) spdlog::info("COM Opened");
+	            	else spdlog::warn("CAN NOT OPEN {}", selected_com);
+	            } else {
+		            spdlog::warn("No COM Selected!");
+	            }
+            }	
+            /// @end Button
+
+            /// @begin Button
+            ImGui::SameLine(0, 1 * ImGui::GetStyle().ItemSpacing.x);
+            if (ImGui::Button("Refresh", { 72, 0 })) {
+            	com_list = LaserControl::EnumeratePortToString();
+            }
             /// @end Button
 
             /// @begin Combo
             ImGui::SameLine(0, 1 * ImGui::GetStyle().ItemSpacing.x);
             ImGui::SetNextItemWidth(224);
-            ImRad::Combo("##com_list", &com_list, "NONE\000", ImGuiComboFlags_None);
+            ImRad::Combo("##com_list", &selected_com, com_list.c_str(), ImGuiComboFlags_None);
             /// @end Combo
 
             /// @begin Text

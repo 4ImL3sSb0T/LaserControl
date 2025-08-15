@@ -7,25 +7,36 @@
 
 #include <serial/serial.h>
 #include <vector>
+#include <thread>
+#include <atomic>
+#include <chrono>
+
+#include  "opencv/track_target.h"
 
 class LaserControl {
 public:
 	LaserControl& operator=(const LaserControl&) = delete;
-	LaserControl(const LaserControl&) = delete;
+	LaserControl(const LaserControl &) = delete;
 
-	LaserControl& getInstance();
+	static LaserControl& getInstance();
 	
 	LaserControl();
 	~LaserControl();
 	
-	int OpenSerialPort(std::string port, uint32_t baud);
+	int OpenSerialPort(const std::string &port, uint32_t baud);
 	static std::string EnumeratePortToString();
+
 	
-	int CreateTask();
+	int CreateTask(uint32_t freq);
 	
 private:
 	serial::Serial* m_serial = nullptr;
-	int m_process();
+	int SendString(const std::string& data) const;
+	int m_process(uint32_t freq) const;
+
+	friend class LaserControlUnitClass;
+
+	std::atomic<bool> is_running = false;
 };
 
 

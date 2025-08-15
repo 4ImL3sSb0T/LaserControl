@@ -4,6 +4,7 @@
 #pragma once
 #include "imrad.h"
 #include <string>
+#include "LaserControl.h"
 
 // #include "ImRadFixed.h"
 class Application
@@ -22,8 +23,10 @@ public:
     int motor_x_step = 1;
     int motor_y_step = 1;
     // std::string value4;
-    std::string com_list = "NONE";
+    std::string selected_com = "NONE";
+	std::string com_list = "NONE";
     /// @end interface
+
 
 private:
     /// @begin impl

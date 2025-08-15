@@ -2,6 +2,8 @@
 #include <imgui.h>
 #include <imgui-SFML.h>
 #include <iostream>
+#include <fmt/core.h>
+#include <spdlog/spdlog.h>
 
 // #include "../backup/ImRadFixed.h"
 #include "Application.h"
@@ -10,10 +12,9 @@
 
 int main() {
 	auto* serial = new serial::Serial();
-	LaserControl laserControl;
 	
 	sf::RenderWindow window(sf::VideoMode(1200, 800), "Control Panel");
-	window.setFramerateLimit(30);
+	window.setFramerateLimit(60);
 
 	if (!ImGui::SFML::Init(window)) {
 		std::cout << "Failed to initialize ImGui!" << std::endl;
@@ -58,9 +59,11 @@ int main() {
 		ImGui::SFML::Render(window);
 		window.display();
 
-		std::cout << "Machine State: " << application.machine_state << std::endl;
-		std::cout << LaserControl::EnumeratePortToString() << std::endl;
+		// std::cout << LaserControl::EnumeratePortToString() << std::endl;
+		// spdlog::info("Hello");
 	}
+	
+	application.Close();
 	ImGui::SFML::Shutdown();
 	return 0;
 }

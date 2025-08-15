@@ -9,6 +9,8 @@ find_package(SFML COMPONENTS system window graphics CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
 find_package(ImGui-SFML CONFIG REQUIRED)
 find_package(OpenCV CONFIG REQUIRED)
+find_package(fmt CONFIG REQUIRED)
+find_package(spdlog CONFIG REQUIRED)
 
 find_library(SERIAL_STATIC serial ${PROJECT_SOURCE_DIR}/lib/static)
 
@@ -17,7 +19,9 @@ aux_source_directory(${PROJECT_SOURCE_DIR}/src SOURCES)
 # 生成可执行文件
 add_executable(LaserControl ${SOURCES} 
         src/Application.cpp
-        src/LaserControl.cpp)
+        src/LaserControl.cpp
+        src/Logger.cpp
+        src/Logger.h)
 
 target_include_directories(LaserControl PRIVATE
         ${PROJECT_SOURCE_DIR}/inc
@@ -41,4 +45,6 @@ target_link_libraries(LaserControl PRIVATE
         sfml-window
         imgui::imgui
         ImGui-SFML::ImGui-SFML
+        fmt::fmt
+        spdlog::spdlog
 )
