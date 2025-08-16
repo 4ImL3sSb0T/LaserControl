@@ -40,16 +40,53 @@ int LaserControl::SendString(const std::string &data) const {
  	return bytes_wrote;
  }
 
-int LaserControl::m_process(const uint32_t freq) const {
+int LaserControl::m_process(const uint32_t intervalTime) {
  	using clock = std::chrono::steady_clock;
  	auto next = clock::now();
- 	const auto interval = std::chrono::milliseconds(1000 / freq);
+ 	const auto interval = std::chrono::milliseconds(intervalTime);
+ 	
  	while (is_running) {
- 		
+ 		switch (m_mode) {
+ 			case MachineMode::Manual: {
+ 				mode_draw(intervalTime);
+ 			}
+ 			break;
+ 			case MachineMode::Draw: {
+ 				mode_draw(intervalTime);
+ 			}
+ 			break;
+ 			case MachineMode::Track: {
+ 				mode_track(intervalTime);
+ 			}
+ 			break;
+ 		}
  		next += interval;
  		std::this_thread::sleep_until(next);
  	}
+ 	
  	return 1;
+ }
+
+int LaserControl::CreateTask(uint32_t interval) {
+ 	m_thread = std::thread(&LaserControl::m_process, this, interval);
+ 	m_thread.detach();
+ 	return 1;
+ }
+
+int LaserControl::mode_draw(uint32_t interval) {
+ 	if (m_serial == nullptr) return -1;
+	 return 1;
+ }
+
+int LaserControl::mode_track(uint32_t interval) {
+ 	if (m_serial == nullptr) return -1;
+ 	 return 1;
+ }
+
+int LaserControl::mode_manual(uint32_t interval) {
+ 	if (m_serial == nullptr) return -1;
+ 	
+ 	 return 1;
  }
 
 
