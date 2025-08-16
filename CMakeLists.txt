@@ -21,7 +21,7 @@ add_executable(LaserControl ${SOURCES}
         src/Application.cpp
         src/LaserControl.cpp
         src/Logger.cpp
-        src/Logger.h)
+        src/PIDController.cpp)
 
 target_include_directories(LaserControl PRIVATE
         ${PROJECT_SOURCE_DIR}/inc

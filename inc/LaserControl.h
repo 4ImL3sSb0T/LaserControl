@@ -11,10 +11,12 @@
 #include <atomic>
 #include <chrono>
 #include <opencv2/opencv.hpp>
+#include <spdlog/spdlog.h>
 
 #include "opencv/track_target.h"
 
 class LaserControl {
+public:
 	enum class MachineState {
 		Idle,
 		Ready,
@@ -29,7 +31,6 @@ class LaserControl {
 		Draw,
 	};
 	
-public:
 	LaserControl& operator=(const LaserControl&) = delete;
 	LaserControl(const LaserControl &) = delete;
 
@@ -42,21 +43,20 @@ public:
 	static std::string EnumeratePortToString();
 	
 	int CreateTask(uint32_t interval);
+	int StopTask();
 	
 	MachineState m_state = MachineState::Idle;
 	MachineMode m_mode = MachineMode::Manual;
 private:
 	serial::Serial* m_serial = nullptr;
-	int SendString(const std::string& data) const;
+	size_t SendString(const std::string& data) const;
 	int m_process(uint32_t interval);
 
 	friend class LaserControlUnitClass;
 
 	std::atomic<bool> is_running = false;
-
-	cv::Vec2f laser_target_pos {0.0f, 0.0f};
-	cv::Vec2f laser_current_pos {0.0f, 0.0f};
-	cv::Vec2f center_pos {0.0f, 0.0f};
+	
+	std::vector<Tracker::ObjectInfo> object_list {};
 
 	std::thread m_thread;
 

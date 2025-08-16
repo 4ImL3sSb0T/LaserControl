@@ -9,27 +9,27 @@
 #include <vector>
 
 class Tracker {
-
-enum class ObjectType {
-	LaserPoint,
-	PaperCenter,
-	None
-};
-
-struct ObjectInfo {
-	cv::Vec2f position;
-	cv::Vec2f velocity;
-	float radius;
-	ObjectType type;
-};
 public:
+	enum class ObjectType {
+		LaserPoint,
+		PaperCenter,
+		None
+	};
+
+	struct ObjectInfo {
+		cv::Vec2f position;
+		cv::Vec2f velocity;
+		float radius;
+		ObjectType type;
+	};
+
 	// 删除构造函数，使用getInstance替代
 	static Tracker& getInstance(int index);
 	Tracker(const Tracker&) = delete;
 	Tracker& operator=(const Tracker&) = delete;
 	
 	void createTask() const;
-	ObjectInfo getObjectInfo(ObjectType type) const;
+	ObjectInfo getObjectInfo(ObjectType type);
 	
 private:
 	Tracker(int index);
@@ -39,7 +39,9 @@ private:
 	void m_opencv_task() const;
 
 	std::vector<ObjectInfo> m_objects;
-	
+
+	static cv::Mat m_frame;
+	static cv::Mat m_draw;
 	static cv::VideoCapture m_cap;
 };
 

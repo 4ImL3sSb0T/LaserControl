@@ -13,7 +13,10 @@ Tracker& Tracker::getInstance(const int index) {
 Tracker::Tracker(const int index) {
 	m_cap = cv::VideoCapture(index);
 	if (Tracker::m_cap.isOpened()) {
-		// 可以添加一些初始化操作
+		m_cap.set(cv::CAP_PROP_FRAME_WIDTH, 1200);
+		m_cap.set(cv::CAP_PROP_FRAME_HEIGHT, 800);
+		m_cap.set(cv::CAP_PROP_FPS, 60);
+		m_cap.set(cv::CAP_PROP_EXPOSURE, -3);
 	}
 }
 
@@ -30,19 +33,18 @@ void Tracker::createTask() const {
 
 void Tracker::m_opencv_task() const {
 	if (m_cap.isOpened()) {
-		while (true) {
-			cv::Mat frame;
-			m_cap.read(frame);
-			if (frame.empty()) {
-				break;
-			}
-			cv::imshow("Tracker", frame);
-			cv::waitKey(1);
-		}
+		m_cap.read(m_frame);
+		if (m_frame.empty() == true) return;
+		m_frame.copyTo(m_draw);
+
+		
+		
+		cv::imshow("Draw", m_draw);
+		cv::waitKey(1);
 	}
 }
 
-Tracker::ObjectInfo Tracker::getObjectInfo(const ObjectType type) const {
+Tracker::ObjectInfo Tracker::getObjectInfo(const ObjectType type) {
 	auto info = ObjectInfo {
 		.type = ObjectType::None,
 		.position = cv::Point2f(0, 0),
@@ -53,5 +55,6 @@ Tracker::ObjectInfo Tracker::getObjectInfo(const ObjectType type) const {
 			break;		
 	}
 	return info;
+	
 }
 
