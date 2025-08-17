@@ -64,7 +64,7 @@ void Tracker::m_opencv_task() {
 			// auto laser_pos = fut.get();
 			
 		} else {
-			spdlog::warn("No ROI Range!");
+			spdlog::warn("No ROI Info!");
 		}
 		
 		cv::imshow("Draw", m_draw);

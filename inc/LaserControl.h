@@ -12,6 +12,8 @@
 #include <chrono>
 #include <opencv2/opencv.hpp>
 #include <spdlog/spdlog.h>
+#include <condition_variable>
+#include <mutex>
 
 #include "opencv/track_target.h"
 #include "PIDControllor.hpp"
@@ -77,6 +79,9 @@ private:
 	int mode_draw(uint32_t interval);
 
 	PIDControllor pid_x, pid_y;
+
+	std::mutex m_mutex;
+	std::condition_variable m_cv;
 
 };
 

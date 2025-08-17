@@ -47,11 +47,15 @@ size_t LaserControl::SetMotorPulse(MotorIndex motor, uint32_t speed, int32_t pul
  	return bytes_wrote;
  }
 
-int LaserControl::m_process(const uint32_t intervalTime) {
+[[noreturn]] int LaserControl::m_process(const uint32_t intervalTime) {
  	using clock = std::chrono::steady_clock;
  	const auto interval = std::chrono::milliseconds(intervalTime);
  	spdlog::info("OpenCV process started");
- 	while (is_running) {
+ 	while (true) {
+ 		std::unique_lock<std::mutex> lock(m_mutex);
+ 		m_cv.wait(lock, [this]{ return is_running == true;});
+ 		lock.unlock();
+ 		
  		const auto start_time = clock::now();
  		// TODO: Opencv 处理图形
  		// OpenCV 只负责更新数据, 对数据的处理放到switch里处理
@@ -78,6 +82,7 @@ int LaserControl::m_process(const uint32_t intervalTime) {
  				spdlog::error("Unknow Mode {}", static_cast<int>(m_mode));
  			}
  		}
+
  		const auto end_time = clock::now();
 		// intervalTime 小于0，以OpenCV的频率同步。只有intervalTimed大于OpenCV处理的时间才会有sheep
  		if (const auto duration_time =
@@ -93,7 +98,11 @@ int LaserControl::m_process(const uint32_t intervalTime) {
  }
 
 int LaserControl::CreateTask(uint32_t interval) {
-	is_running = true;
+	{
+		std::unique_lock<std::mutex> lock(m_mutex);
+		is_running = true;
+	}
+	if (m_thread.joinable()) m_thread.join();
  	m_thread = std::thread(&LaserControl::m_process, this, interval);
  	spdlog::info("Control thread started");
  	m_thread.detach();
@@ -101,7 +110,10 @@ int LaserControl::CreateTask(uint32_t interval) {
  }
 
 int LaserControl::StopTask() {
-	 is_running = false;
+	{
+		std::unique_lock<std::mutex> lock(m_mutex);
+		is_running = false;
+	}
 	return 1;
  }
 
