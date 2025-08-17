@@ -7,6 +7,9 @@
 
 #include <opencv2/opencv.hpp>
 #include <vector>
+#include <spdlog/spdlog.h>
+
+#include "opencv/roi_extractor.h"
 
 class Tracker {
 public:
@@ -17,7 +20,7 @@ public:
 	};
 
 	struct ObjectInfo {
-		cv::Vec2f position;
+		cv::Point2f position;
 		cv::Vec2f velocity;
 		float radius;
 		ObjectType type;
@@ -36,9 +39,11 @@ private:
 	~Tracker();
 	Tracker() = delete;
 
-	void m_opencv_task() const;
+	void m_opencv_task();
 
 	std::vector<ObjectInfo> m_objects;
+
+	static ROIExtractor m_extractor;
 
 	static cv::Mat m_frame;
 	static cv::Mat m_draw;

@@ -12,7 +12,7 @@ LaserControl::~LaserControl() {
  }
 
 int LaserControl::OpenSerialPort(const std::string& port, const uint32_t baud) {
- 	m_serial = std::make_shared<serial::Serial>(serial::Serial(port, baud, serial::Timeout::simpleTimeout(1000)));
+ 	m_serial = std::make_shared<serial::Serial>(port, baud, serial::Timeout::simpleTimeout(1000));
  	spdlog::info("Open serial port {}, serial state is {}", port, m_serial->isOpen());
  	if (!m_serial->isOpen()) return -1; else return 1;
  }
@@ -40,7 +40,7 @@ size_t LaserControl::SendString(const std::string &data) const {
 
 size_t LaserControl::SetMotorPulse(MotorIndex motor, uint32_t speed, int32_t pulse) const {
  	if (m_serial == nullptr) return -1;
- 	const std::string command = fmt::format("M{},{},{}", motor, speed, pulse);
+ 	const std::string command = fmt::format("M,{},{},{}\n", static_cast<int>(motor), speed, pulse);
  	const size_t bytes_wrote = SendString(command);
  	return bytes_wrote;
  }
@@ -54,6 +54,7 @@ int LaserControl::m_process(const uint32_t intervalTime) {
  		// TODO: Opencv 处理图形
  		// OpenCV 只负责更新数据, 对数据的处理放到switch里处理
  		// 这里处理的频率和OpenCV处理的频率同步, 串口发送也是同步的
+ 		
  		switch (m_mode) {
  			case MachineMode::Manual: {
  				

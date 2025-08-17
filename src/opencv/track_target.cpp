@@ -31,13 +31,34 @@ void Tracker::createTask() const {
 	// 任务创建实现
 }
 
-void Tracker::m_opencv_task() const {
+void Tracker::m_opencv_task() {
 	if (m_cap.isOpened()) {
+		m_objects.clear();
+		
 		m_cap.read(m_frame);
 		if (m_frame.empty() == true) return;
 		m_frame.copyTo(m_draw);
 
+		const auto roi_result = m_extractor.extractROI(m_frame, &m_draw, 80);
 		
+		// 添加对象信息
+		if (roi_result.roi_info.has_value()) {
+			const ROIInfo& roi_info = roi_result.roi_info.value();
+			cv::circle(m_draw, roi_info.center, 5, cv::Scalar(0, 0, 255), -1);
+
+			m_objects.emplace_back(ObjectInfo {
+			.position = roi_result.roi_info.value().center,
+			.velocity = cv::Vec2f(0, 0),
+			.radius = -1,
+			.type = ObjectType::PaperCenter,
+			});
+
+			const auto& roi_frame = roi_result.roi_image;
+
+			// TODO: roi内检测对象
+		} else {
+			spdlog::warn("No ROI Range!");
+		}
 		
 		cv::imshow("Draw", m_draw);
 		cv::waitKey(1);
@@ -48,7 +69,7 @@ Tracker::ObjectInfo Tracker::getObjectInfo(const ObjectType type) {
 	auto info = ObjectInfo {
 		.type = ObjectType::None,
 		.position = cv::Point2f(0, 0),
-		.radius = 0
+		.radius = -1,
 	};
 	switch (type) {
 		default:
