@@ -14,6 +14,7 @@
 #include <spdlog/spdlog.h>
 
 #include "opencv/track_target.h"
+#include "PIDControllor.hpp"
 
 class LaserControl {
 public:
@@ -74,6 +75,8 @@ private:
 	int mode_manual(uint32_t interval);
 	int mode_track(uint32_t interval);
 	int mode_draw(uint32_t interval);
+
+	PIDControllor pid_x, pid_y;
 
 };
 

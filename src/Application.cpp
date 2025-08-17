@@ -89,12 +89,16 @@ void Application::Draw()
             /// @end Spacer
 
             /// @begin Button
-            ImGui::Button("START", { 104, 56 });
+            if (ImGui::Button("START", { 104, 56 })) {
+                LaserControl::getInstance().CreateTask(10);
+            }
             /// @end Button
 
             /// @begin Button
             ImGui::SameLine(0, 12 * ImGui::GetStyle().ItemSpacing.x);
-            ImGui::Button("STOP", { 104, 56 });
+            if(ImGui::Button("STOP", { 104, 56 })) {
+                LaserControl::getInstance().StopTask();
+            }
             /// @end Button
 
             /// @begin Button

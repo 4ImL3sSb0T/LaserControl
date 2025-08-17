@@ -12,6 +12,7 @@ LaserControl::~LaserControl() {
  }
 
 int LaserControl::OpenSerialPort(const std::string& port, const uint32_t baud) {
+	if (m_serial != nullptr) m_serial->close();
  	m_serial = std::make_shared<serial::Serial>(port, baud, serial::Timeout::simpleTimeout(1000));
  	spdlog::info("Open serial port {}, serial state is {}", port, m_serial->isOpen());
  	if (!m_serial->isOpen()) return -1; else return 1;
@@ -42,6 +43,7 @@ size_t LaserControl::SetMotorPulse(MotorIndex motor, uint32_t speed, int32_t pul
  	if (m_serial == nullptr) return -1;
  	const std::string command = fmt::format("M,{},{},{}\n", static_cast<int>(motor), speed, pulse);
  	const size_t bytes_wrote = SendString(command);
+	if (bytes_wrote <= 1) spdlog::warn("Serial sending warning, {} bytes were snet !", bytes_wrote);
  	return bytes_wrote;
  }
 
@@ -55,19 +57,26 @@ int LaserControl::m_process(const uint32_t intervalTime) {
  		// OpenCV 只负责更新数据, 对数据的处理放到switch里处理
  		// 这里处理的频率和OpenCV处理的频率同步, 串口发送也是同步的
  		
+ 		// 处理图形
+ 		Tracker::getInstance(0).m_opencv_task();
+ 		// 拿到处理完的数据
+ 		Tracker::getInstance(0).getObjectList(object_list);
  		switch (m_mode) {
  			case MachineMode::Manual: {
- 				
+ 				mode_manual(intervalTime);
+ 				break;
  			}
- 			break;
  			case MachineMode::Draw: {
  				mode_draw(intervalTime);
+ 				break;
  			}
- 			break;
  			case MachineMode::Track: {
  				mode_track(intervalTime);
+ 				break;
  			}
- 			break;
+ 			default: {
+ 				spdlog::error("Unknow Mode {}", static_cast<int>(m_mode));
+ 			}
  		}
  		const auto end_time = clock::now();
 		// intervalTime 小于0，以OpenCV的频率同步。只有intervalTimed大于OpenCV处理的时间才会有sheep
@@ -79,13 +88,14 @@ int LaserControl::m_process(const uint32_t intervalTime) {
  			std::this_thread::sleep_for(sleep_time);
  		}
  	}
- 	spdlog::info("OpenCV process stopped");
+ 	spdlog::info("Control thread stopped");
  	return 1;
  }
 
 int LaserControl::CreateTask(uint32_t interval) {
+	is_running = true;
  	m_thread = std::thread(&LaserControl::m_process, this, interval);
- 	spdlog::info("OpenCV thread started");
+ 	spdlog::info("Control thread started");
  	m_thread.detach();
  	return 1;
  }
@@ -102,13 +112,40 @@ int LaserControl::mode_draw(uint32_t interval) {
  }
 
 int LaserControl::mode_track(uint32_t interval) {
- 	if (m_serial == nullptr) return -1;
- 	 return 1;
+	if (m_serial == nullptr) return -1;
+	cv::Point2f laser_pos {0, 0};
+	cv::Point2f center_pos {0, 0};
+	int laser_cnt = 0, center_cnt = 0;
+	for (auto& object: object_list) {
+		switch (object.type) {
+			case Tracker::ObjectType::LaserPoint: {
+				laser_pos = object.position;
+				laser_cnt++;
+				break;
+			}
+			case Tracker::ObjectType::PaperCenter: {
+				center_pos = object.position;
+				center_cnt++;
+				break;
+			}
+			default: {
+				spdlog::error("Unknow Type {}", static_cast<int>(object.type));
+			}
+		}
+	}
+	if (laser_cnt > 1 || center_cnt > 1) {
+		spdlog::warn("Multiple objects detected ! {} laser points, {} Center point", laser_cnt, center_cnt);
+		return -1;
+	}
+	const auto step_out_x = pid_x.Compute(center_pos.x, laser_pos.x);
+	const auto step_out_y = pid_y.Compute(center_pos.y, laser_pos.y);
+	SetMotorPulse(MotorIndex::StepMotorX, 100, static_cast<int32_t>(step_out_x));
+	SetMotorPulse(MotorIndex::StepMotorY, 100, static_cast<int32_t>(step_out_y));
+	return 1;
  }
 
 int LaserControl::mode_manual(uint32_t interval) {
  	if (m_serial == nullptr) return -1;
- 	
  	 return 1;
  }
 

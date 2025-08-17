@@ -27,10 +27,6 @@ Tracker::~Tracker() {
 	}
 }
 
-void Tracker::createTask() const {
-	// 任务创建实现
-}
-
 void Tracker::m_opencv_task() {
 	if (m_cap.isOpened()) {
 		m_objects.clear();
@@ -44,8 +40,11 @@ void Tracker::m_opencv_task() {
 		// 添加对象信息
 		if (roi_result.roi_info.has_value()) {
 			const ROIInfo& roi_info = roi_result.roi_info.value();
+			
 			cv::circle(m_draw, roi_info.center, 5, cv::Scalar(0, 0, 255), -1);
-
+			cv::putText(m_draw, std::to_string(roi_info.area), roi_info.bounds.tl(),
+				cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
+			
 			m_objects.emplace_back(ObjectInfo {
 			.position = roi_result.roi_info.value().center,
 			.velocity = cv::Vec2f(0, 0),
@@ -53,9 +52,17 @@ void Tracker::m_opencv_task() {
 			.type = ObjectType::PaperCenter,
 			});
 
+			// 异步不要使用引用，会导致悬空引用
 			const auto& roi_frame = roi_result.roi_image;
+			// TODO:使用线程池来提高效率
 
-			// TODO: roi内检测对象
+			// 	std::future<cv::Point2f> fut = std::async(
+			// 		std::launch::async,
+			// 		&Tracker::getLaserPos,
+			// 		this, roi_frame, &m_draw
+			// 	);
+			// auto laser_pos = fut.get();
+			
 		} else {
 			spdlog::warn("No ROI Range!");
 		}
@@ -65,17 +72,16 @@ void Tracker::m_opencv_task() {
 	}
 }
 
-Tracker::ObjectInfo Tracker::getObjectInfo(const ObjectType type) {
-	auto info = ObjectInfo {
-		.type = ObjectType::None,
-		.position = cv::Point2f(0, 0),
-		.radius = -1,
-	};
-	switch (type) {
-		default:
-			break;		
-	}
-	return info;
-	
+void Tracker::getObjectList(std::vector<ObjectInfo> &list) const {
+	list = m_objects;
 }
+
+cv::Point2f Tracker::getLaserPos(const cv::Mat &frame, cv::Mat *draw_frame) {
+	return cv::Point2f {0, 0};
+}
+
+cv::Mat Tracker::getLaserTrace(const cv::Mat &frame, cv::Mat *draw_frame) {
+	return cv::Mat {};
+}
+
 

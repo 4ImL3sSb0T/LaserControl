@@ -21,7 +21,10 @@ add_executable(LaserControl ${SOURCES}
         src/Application.cpp
         src/LaserControl.cpp
         src/Logger.cpp
-        src/PIDController.cpp)
+        src/PIDControllor.cpp
+        src/opencv/track_target.cpp
+        src/opencv/roi_extractor.cpp
+)
 
 target_include_directories(LaserControl PRIVATE
         ${PROJECT_SOURCE_DIR}/inc
