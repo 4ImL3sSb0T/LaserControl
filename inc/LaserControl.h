@@ -17,6 +17,14 @@
 
 class LaserControl {
 public:
+	enum class MotorIndex {
+		StepMotorX ,
+		StepMotorY,
+		StepMotorZ,
+		ServoMotorX,
+		ServoMotorY,
+		ServoMotorZ,
+	};
 	enum class MachineState {
 		Idle,
 		Ready,
@@ -44,11 +52,14 @@ public:
 	
 	int CreateTask(uint32_t interval);
 	int StopTask();
+
+	size_t SetMotorPulse(MotorIndex motor, uint32_t speed, int32_t pulse) const;
 	
 	MachineState m_state = MachineState::Idle;
 	MachineMode m_mode = MachineMode::Manual;
 private:
-	serial::Serial* m_serial = nullptr;
+	// serial::Serial* m_serial = nullptr;
+	std::shared_ptr<serial::Serial> m_serial = nullptr;
 	size_t SendString(const std::string& data) const;
 	int m_process(uint32_t interval);
 
