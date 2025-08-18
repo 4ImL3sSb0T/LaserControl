@@ -149,6 +149,10 @@ int LaserControl::mode_track(uint32_t interval) {
 		spdlog::warn("Multiple objects detected ! {} laser points, {} Center point", laser_cnt, center_cnt);
 		return -1;
 	}
+	if (laser_cnt == 0 || center_cnt == 0) {
+        spdlog::warn("No laser point or center point detected !");
+        return -1;
+	}
 	const auto step_out_x = pid_x.Compute(center_pos.x, laser_pos.x);
 	const auto step_out_y = pid_y.Compute(center_pos.y, laser_pos.y);
 	SetMotorPulse(MotorIndex::StepMotorX, 100, static_cast<int32_t>(step_out_x));

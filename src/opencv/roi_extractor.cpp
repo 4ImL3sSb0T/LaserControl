@@ -17,7 +17,7 @@ std::pair<bool, std::vector<cv::Point>> isApproxRect(const std::vector<cv::Point
     double peri = cv::arcLength(contour, true);
     std::vector<cv::Point> approx;
     cv::approxPolyDP(contour, approx, epsilon_factor * peri, true);
-    
+
     bool is_rect = (approx.size() >= 4 && approx.size() <= 5) && cv::isContourConvex(approx);
     return std::make_pair(is_rect, approx);
 }
