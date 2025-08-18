@@ -17,7 +17,7 @@ std::pair<bool, std::vector<cv::Point>> isApproxRect(const std::vector<cv::Point
     double peri = cv::arcLength(contour, true);
     std::vector<cv::Point> approx;
     cv::approxPolyDP(contour, approx, epsilon_factor * peri, true);
-    
+
     bool is_rect = (approx.size() >= 4 && approx.size() <= 5) && cv::isContourConvex(approx);
     return std::make_pair(is_rect, approx);
 }
@@ -67,19 +67,13 @@ ROIResult ROIExtractor::extractROI(const cv::Mat& frame, cv::Mat* draw_frame, in
     std::vector<Candidate> candidates;
     for (const auto& cnt : contours) {
         double area = cv::contourArea(cnt);
-        if (area < min_area_) {
-            continue;
-        }
+        if (area < min_area_) continue;
         
         auto [is_rect, approx] = isApproxRect(cnt, 0.02);
-        if (!is_rect) {
-            continue;
-        }
+        if (!is_rect) continue;
         
         auto center_opt = calcCenter(approx);
-        if (!center_opt) {
-            continue;
-        }
+        if (!center_opt) continue;
         
         candidates.emplace_back(approx, *center_opt, area);
     }

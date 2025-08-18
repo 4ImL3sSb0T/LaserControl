@@ -8,6 +8,7 @@
 #include <opencv2/opencv.hpp>
 #include <vector>
 #include <spdlog/spdlog.h>
+#include <future>
 
 #include "opencv/roi_extractor.h"
 
@@ -27,27 +28,30 @@ public:
 	};
 
 	// 删除构造函数，使用getInstance替代
-	static Tracker& getInstance(int index);
+	static Tracker& getInstance(const int index);
 	Tracker(const Tracker&) = delete;
 	Tracker& operator=(const Tracker&) = delete;
-	
-	void createTask() const;
-	ObjectInfo getObjectInfo(ObjectType type);
+	void m_opencv_task();
+	void getObjectList(std::vector<ObjectInfo>& list) const;
+	// void createTask() const;
 	
 private:
-	Tracker(int index);
+	Tracker(const int index);
 	~Tracker();
 	Tracker() = delete;
 
-	void m_opencv_task();
 
-	std::vector<ObjectInfo> m_objects;
 
-	static ROIExtractor m_extractor;
+	std::vector<ObjectInfo> m_objects {};
 
-	static cv::Mat m_frame;
-	static cv::Mat m_draw;
-	static cv::VideoCapture m_cap;
+	ROIExtractor m_extractor;
+
+	cv::Mat m_frame;
+	cv::Mat m_draw;
+	cv::VideoCapture m_cap;
+
+	cv::Point2f getLaserPos(const cv::Mat& frame, cv::Mat* draw_frame);
+	cv::Mat getLaserTrace(const cv::Mat& frame, cv::Mat* draw_frame);
 };
 
 #endif //TRACK_TARGET_H
