@@ -16,7 +16,7 @@ Tracker::Tracker(const int index) {
 		m_cap.set(cv::CAP_PROP_FRAME_WIDTH, 1200);
 		m_cap.set(cv::CAP_PROP_FRAME_HEIGHT, 800);
 		m_cap.set(cv::CAP_PROP_FPS, 60);
-		m_cap.set(cv::CAP_PROP_EXPOSURE, -3);
+		m_cap.set(cv::CAP_PROP_EXPOSURE, -5);
 	}
 }
 
