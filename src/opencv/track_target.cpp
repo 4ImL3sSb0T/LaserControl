@@ -77,28 +77,24 @@ void Tracker::getObjectList(std::vector<ObjectInfo> &list) const {
 	list = m_objects;
 }
 
-Tracker::ObjectInfo Tracker::getLaserPos(const cv::Mat &frame, cv::Mat *draw_frame,
-                                         const cv::Scalar& hsv_lower, const cv::Scalar &hsv_upper,
-                                         const cv::Scalar& hsv_laser_lower, const cv::Scalar &hsv_laser_upper,
-                                         int min_radius, int max_radius) {
-	ObjectInfo laser_info_obj {};
+Tracker::ObjectInfo getLaserPos(const cv::UMat &frame, cv::UMat *draw_frame,
+							const HSVRange& hsv_r, const HSVRange& hsv_laser,
+							int min_radius = 5, int max_radius = 15) {
+	Tracker::ObjectInfo laser_info_obj {};
 	
 	if (frame.empty()) {
 		spdlog::warn("Frame is empty, cannot get laser position.");
 		return laser_info_obj;
 	}
 	cv::Point2f laser_pos {};
-	cv::Mat hsv;
+	cv::UMat hsv, mask, opening, dilated;
 	cv::cvtColor(frame, hsv, cv::COLOR_BGR2HSV);
-	cv::Mat mask;
-	cv::inRange(hsv, hsv_lower, hsv_upper, mask);
-	cv::Mat opening;
+	cv::inRange(hsv, hsv_r.lower, hsv_r.upper, mask);
 	cv::morphologyEx(mask, opening, cv::MORPH_OPEN, cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3)));
-	cv::Mat dilated;
 	cv::dilate(opening, dilated, cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3)));
 
-	std::vector<cv::Vec3f> circles {};
-
+	static std::vector<cv::Vec3f> circles {};
+	circles.clear();
 	cv::HoughCircles(dilated, circles, cv::HOUGH_GRADIENT, 1, 50, 10, 5, min_radius, max_radius);
 
 	cv::Point2f best_point {};
@@ -106,13 +102,15 @@ Tracker::ObjectInfo Tracker::getLaserPos(const cv::Mat &frame, cv::Mat *draw_fra
 		float best_radius = 0;
 		int area_max = 0;
 		for (const auto& circle : circles) {
-			cv::Mat mask_color;
-			cv::inRange(hsv, hsv_laser_lower, hsv_laser_upper, mask_color);
-			cv::Mat mask_circle = cv::Mat::zeros(mask.rows, mask.cols, mask.type());
+			static cv::UMat mask_color;
+			cv::inRange(hsv, hsv_laser.lower, hsv_laser.upper, mask_color);
+			static cv::UMat mask_circle = cv::UMat::zeros(mask.rows, mask.cols, mask.type());
+			mask_circle.setTo(cv::Scalar(0, 0, 0));
 			cv::circle(mask_circle, cv::Point(static_cast<int>(circle[0]), static_cast<int>(circle[1])),
 				static_cast<int>(circle[2] * 1.5), cv::Scalar(255, 255, 255), -1);
 			// 这个mask_combined是可能的激光点周围经过hsv range后的区域,目的是筛选出可能的激光点周围颜色最符合要求的点
-			cv::Mat mask_combined = mask_color | mask_circle;
+			cv::UMat mask_combined;
+			cv::bitwise_or(mask_color, mask_circle, mask_combined);
 			auto area = cv::countNonZero(mask_combined);
 			if (area > area_max) {
 				area_max = area;
@@ -124,11 +122,11 @@ Tracker::ObjectInfo Tracker::getLaserPos(const cv::Mat &frame, cv::Mat *draw_fra
 			cv::circle(*draw_frame, best_point, static_cast<int>(best_radius), cv::Scalar(0, 0, 255), 2);
 			cv::putText(*draw_frame, "Laser", best_point, cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
 		}
-		laser_info_obj = ObjectInfo {
+		laser_info_obj = Tracker::ObjectInfo {
 			.position = best_point,
 			.velocity = cv::Vec2f(0, 0),
 			.radius = best_radius,
-			.type = ObjectType::LaserPoint,
+			.type = Tracker::ObjectType::LaserPoint,
 		};
 	} else {
 		spdlog::warn("No laser detected.");
@@ -137,17 +135,21 @@ Tracker::ObjectInfo Tracker::getLaserPos(const cv::Mat &frame, cv::Mat *draw_fra
 	return laser_info_obj;
 }
 
-cv::Mat Tracker::getLaserTrace(const cv::Mat &frame, cv::Mat *draw_frame,
-	const cv::Scalar& hsv_lower, const cv::Scalar &hsv_upper) {
-	static cv::Mat last_trace;
-	cv::Mat laser_trace = cv::Mat::zeros(frame.rows, frame.cols, CV_8UC1);
-	cv::Mat hsv;
+cv::UMat getLaserTrace(const cv::UMat& frame, cv::UMat* draw_frame,
+		const HSVRange& hsv_range) {
+	constexpr auto color = cv::Scalar(0, 0, 255);
+	static cv::UMat last_trace;
+	cv::UMat hsv;
+	cv::UMat laser_trace = cv::UMat::zeros(frame.rows, frame.cols, CV_8UC1);
 	cv::cvtColor(frame, hsv, cv::COLOR_BGR2HSV);
-	cv::inRange(hsv, hsv_lower, hsv_upper, laser_trace);
-	laser_trace = laser_trace | last_trace;
+	cv::inRange(hsv, hsv_range.lower, hsv_range.upper, laser_trace);
+	cv::bitwise_or(laser_trace, laser_trace, laser_trace);
 	last_trace = laser_trace;
+	
 	if (draw_frame != nullptr) {
-		// TODO: 绘制激光轨迹
+		static cv::UMat laser_trace_color = cv::UMat::zeros(draw_frame->rows, draw_frame->cols, CV_8UC3);
+		laser_trace_color.setTo(color, laser_trace);
+		cv::addWeighted(*draw_frame, 1, laser_trace_color, 0.5, 0.0, *draw_frame);
 	}
 	return laser_trace;
 };

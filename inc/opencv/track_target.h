@@ -12,6 +12,11 @@
 
 #include "opencv/roi_extractor.h"
 
+struct HSVRange {
+	cv::Scalar lower;
+	cv::Scalar upper;
+};
+
 class Tracker {
 public:
 	enum class ObjectType {
@@ -39,23 +44,24 @@ private:
 	Tracker(const int index);
 	~Tracker();
 	Tracker() = delete;
-
-
-
+	
 	std::vector<ObjectInfo> m_objects {};
 
 	ROIExtractor m_extractor;
 
-	cv::Mat m_frame;
-	cv::Mat m_draw;
+	cv::UMat m_frame;
+	cv::UMat m_draw;
 	cv::VideoCapture m_cap;
 
-	ObjectInfo getLaserPos(const cv::Mat &frame, cv::Mat *draw_frame,
-							const cv::Scalar &hsv_lower, const cv::Scalar &hsv_upper,
-							const cv::Scalar& hsv_laser_lower, const cv::Scalar &hsv_laser_upper,
-							int min_radius, int max_radius);
-	cv::Mat getLaserTrace(const cv::Mat& frame, cv::Mat* draw_frame,
-		const cv::Scalar& hsv_lower, const cv::Scalar &hsv_upper);
+	ObjectInfo getLaserPos(const cv::UMat &frame, cv::UMat *draw_frame,
+							const HSVRange& hsv_r, const HSVRange& hsv_laser,
+							int min_radius = 5, int max_radius = 15);
+	cv::UMat getLaserTrace(const cv::UMat& frame, cv::UMat* draw_frame,
+		const HSVRange& hsv_range);
+};
+
+class LaserTracker {
+	
 };
 
 #endif //TRACK_TARGET_H

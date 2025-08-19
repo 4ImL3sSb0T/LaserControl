@@ -1,8 +1,31 @@
 #include "opencv/roi_extractor.h"
 #include <algorithm>
 #include <cmath>
+#include <opencv2/core/ocl.hpp>
+#include <iostream>
+#include <spdlog/spdlog.h>
 
-cv::Mat cropROIBorder(const cv::Mat& img, double percent) {
+// 在应用程序开始时初始化OpenCL
+static bool initOpenCL() {
+    static bool initialized = false;
+    if (!initialized) {
+        initialized = true;
+        if (!cv::ocl::haveOpenCL()) {
+            spdlog::warn("OpenCL not available");
+            return false;
+        }
+        cv::ocl::setUseOpenCL(true);
+        spdlog::info("OpenCL available : {} ", cv::ocl::useOpenCL());
+        // 显示OpenCL设备信息
+        const cv::ocl::Device& device = cv::ocl::Device::getDefault();
+        if (!device.empty()) {
+            spdlog::info("Using GPU device : {}", device.name());
+        }
+    }
+    return cv::ocl::useOpenCL();
+}
+
+cv::UMat cropROIBorder(const cv::UMat& img, double percent) {
     int h = img.rows;
     int w = img.cols;
     int top = static_cast<int>(h * percent);
@@ -16,6 +39,7 @@ cv::Mat cropROIBorder(const cv::Mat& img, double percent) {
 std::pair<bool, std::vector<cv::Point>> isApproxRect(const std::vector<cv::Point>& contour, double epsilon_factor) {
     double peri = cv::arcLength(contour, true);
     std::vector<cv::Point> approx;
+    approx.reserve(8); // 预分配内存，矩形轮廓通常不超过8个点
     cv::approxPolyDP(contour, approx, epsilon_factor * peri, true);
 
     bool is_rect = (approx.size() >= 4 && approx.size() <= 5) && cv::isContourConvex(approx);
@@ -32,32 +56,53 @@ std::optional<cv::Point2i> calcCenter(const std::vector<cv::Point>& approx) {
     return cv::Point2i(x, y);
 }
 
+// 使用更快的距离计算（避免开方运算）
+double distanceSquared(const cv::Point2i& p1, const cv::Point2i& p2) {
+    return std::pow(p1.x - p2.x, 2) + std::pow(p1.y - p2.y, 2);
+}
+
 double distance(const cv::Point2i& p1, const cv::Point2i& p2) {
-    return std::sqrt(std::pow(p1.x - p2.x, 2) + std::pow(p1.y - p2.y, 2));
+    return std::sqrt(distanceSquared(p1, p2));
 }
 
 ROIExtractor::ROIExtractor(double min_area, double crop_percent)
     : min_area_(min_area), crop_percent_(crop_percent) {
     reset();
+    
+    // 初始化OpenCL
+    initOpenCL();
+    
+    // 预创建形态学操作的结构元素，避免重复创建
+    cv::Mat kernel_cpu = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
+    morph_kernel_ = kernel_cpu.getUMat(cv::ACCESS_READ);
 }
 
-ROIResult ROIExtractor::extractROI(const cv::Mat& frame, cv::Mat* draw_frame, int gray_threshold) {
-    cv::Mat gray;
+ROIResult ROIExtractor::extractROI(const cv::UMat& frame, cv::UMat* draw_frame, int gray_threshold) {
+    static cv::UMat gray;
     cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
     
-    cv::Mat binary;
+    static cv::UMat binary;
     cv::threshold(gray, binary, gray_threshold, 255, cv::THRESH_BINARY_INV);
     
-    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
-    cv::Mat closed;
-    cv::morphologyEx(binary, closed, cv::MORPH_CLOSE, kernel);
+    // 使用缓存的结构元素
+    static cv::UMat closed;
+    cv::morphologyEx(binary, closed, cv::MORPH_CLOSE, morph_kernel_);
     cv::bitwise_not(closed, closed);
     
-    // Debug显示
-    cv::imshow("closed", binary);
+    // 调试显示 - 注意：这需要从GPU内存下载数据
+    if (cv::ocl::useOpenCL()) {
+        cv::Mat closed_mat;
+        closed.copyTo(closed_mat);
+        cv::imshow("closed", closed_mat);
+    } else {
+        cv::imshow("closed", closed.getMat(cv::ACCESS_READ));
+    }
     
     std::vector<std::vector<cv::Point>> contours;
-    cv::findContours(closed, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+    // 轮廓查找需要在CPU上进行
+    cv::Mat closed_cpu;
+    closed.copyTo(closed_cpu);
+    cv::findContours(closed_cpu, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
     
     // 绘制所有轮廓用于调试
     if (draw_frame) {
@@ -65,6 +110,9 @@ ROIResult ROIExtractor::extractROI(const cv::Mat& frame, cv::Mat* draw_frame, in
     }
     
     std::vector<Candidate> candidates;
+    candidates.reserve(contours.size()); // 预分配内存提高性能
+    
+    // 过滤和处理轮廓
     for (const auto& cnt : contours) {
         double area = cv::contourArea(cnt);
         if (area < min_area_) continue;
@@ -79,7 +127,7 @@ ROIResult ROIExtractor::extractROI(const cv::Mat& frame, cv::Mat* draw_frame, in
     }
     
     if (candidates.empty()) {
-        return ROIResult(cv::Mat(), std::nullopt);
+        return ROIResult(cv::UMat(), std::nullopt);
     }
     
     auto selected = selectBestCandidate(candidates);
@@ -92,14 +140,15 @@ ROIResult ROIExtractor::extractROI(const cv::Mat& frame, cv::Mat* draw_frame, in
         int crop_w = static_cast<int>(bounding_rect.width * crop_percent_);
         int crop_h = static_cast<int>(bounding_rect.height * crop_percent_);
         
-        cv::Rect roi_rect(
-            std::max(0, bounding_rect.x - crop_w),
-            std::max(0, bounding_rect.y - crop_h),
-            std::min(frame.cols - std::max(0, bounding_rect.x - crop_w), bounding_rect.width + 2 * crop_w),
-            std::min(frame.rows - std::max(0, bounding_rect.y - crop_h), bounding_rect.height + 2 * crop_h)
-        );
+        // 优化边界检查
+        int roi_x = std::max(0, bounding_rect.x - crop_w);
+        int roi_y = std::max(0, bounding_rect.y - crop_h);
+        int roi_width = std::min(frame.cols - roi_x, bounding_rect.width + 2 * crop_w);
+        int roi_height = std::min(frame.rows - roi_y, bounding_rect.height + 2 * crop_h);
         
-        cv::Mat roi = frame(roi_rect);
+        cv::Rect roi_rect(roi_x, roi_y, roi_width, roi_height);
+        
+        cv::UMat roi = frame(roi_rect);
         
         // 绘制检测结果
         if (draw_frame) {
@@ -114,7 +163,7 @@ ROIResult ROIExtractor::extractROI(const cv::Mat& frame, cv::Mat* draw_frame, in
         
         return ROIResult(roi, roi_info);
     } else {
-        return ROIResult(cv::Mat(), std::nullopt);
+        return ROIResult(cv::UMat(), std::nullopt);
     }
 }
 
@@ -131,12 +180,12 @@ std::optional<ROIExtractor::Candidate> ROIExtractor::selectBestCandidate(const s
             });
         return *max_area_it;
     } else {
-        // 有历史中心，选择距离最近的
+        // 有历史中心，选择距离最近的（使用平方距离避免开方运算）
         auto min_dist_it = std::min_element(candidates.begin(), candidates.end(),
             [this](const Candidate& a, const Candidate& b) {
-                double dist_a = distance(a.center, *prev_center_);
-                double dist_b = distance(b.center, *prev_center_);
-                return dist_a < dist_b;
+                double dist_a_sq = distanceSquared(a.center, *prev_center_);
+                double dist_b_sq = distanceSquared(b.center, *prev_center_);
+                return dist_a_sq < dist_b_sq;
             });
         return *min_dist_it;
     }
@@ -146,7 +195,7 @@ void ROIExtractor::reset() {
     prev_center_.reset();
 }
 
-ROIResult extractROISimple(const cv::Mat& frame, double min_area, double crop_percent) {
+ROIResult extractROISimple(const cv::UMat& frame, double min_area, double crop_percent) {
     ROIExtractor extractor(min_area, crop_percent);
     return extractor.extractROI(frame);
 }
