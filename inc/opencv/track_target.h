@@ -15,9 +15,9 @@
 class Tracker {
 public:
 	enum class ObjectType {
-		LaserPoint,
+		None,
 		PaperCenter,
-		None
+		LaserPoint
 	};
 
 	struct ObjectInfo {
@@ -50,8 +50,12 @@ private:
 	cv::Mat m_draw;
 	cv::VideoCapture m_cap;
 
-	cv::Point2f getLaserPos(const cv::Mat& frame, cv::Mat* draw_frame);
-	cv::Mat getLaserTrace(const cv::Mat& frame, cv::Mat* draw_frame);
+	ObjectInfo getLaserPos(const cv::Mat &frame, cv::Mat *draw_frame,
+							const cv::Scalar &hsv_lower, const cv::Scalar &hsv_upper,
+							const cv::Scalar& hsv_laser_lower, const cv::Scalar &hsv_laser_upper,
+							int min_radius, int max_radius);
+	cv::Mat getLaserTrace(const cv::Mat& frame, cv::Mat* draw_frame,
+		const cv::Scalar& hsv_lower, const cv::Scalar &hsv_upper);
 };
 
 #endif //TRACK_TARGET_H

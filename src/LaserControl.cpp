@@ -15,6 +15,10 @@ int LaserControl::OpenSerialPort(const std::string& port, const uint32_t baud) {
 	if (m_serial != nullptr) m_serial->close();
  	m_serial = std::make_shared<serial::Serial>(port, baud, serial::Timeout::simpleTimeout(1000));
  	spdlog::info("Open serial port {}, serial state is {}", port, m_serial->isOpen());
+	// TODO: 开启接收线程
+	// auto receive = std::thread([this]() { m_serial->readline(rx_buffer);
+	// });
+	// receive.detach();
  	if (!m_serial->isOpen()) return -1; else return 1;
  }
 
