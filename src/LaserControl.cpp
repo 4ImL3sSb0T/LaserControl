@@ -66,9 +66,9 @@ size_t LaserControl::SetMotorPulse(MotorIndex motor, uint32_t speed, int32_t pul
  		// 这里处理的频率和OpenCV处理的频率同步, 串口发送也是同步的
  		
  		// 处理图形
- 		Tracker::getInstance(0).m_opencv_task();
+ 		ComputerVision::Tracker::getInstance(0).m_opencv_task();
  		// 拿到处理完的数据
- 		Tracker::getInstance(0).getObjectList(object_list);
+ 		ComputerVision::Tracker::getInstance(0).getObjectList(object_list);
  		switch (m_mode) {
  			case MachineMode::Manual: {
  				mode_manual(intervalTime);
@@ -134,12 +134,12 @@ int LaserControl::mode_track(uint32_t interval) {
 	int laser_cnt = 0, center_cnt = 0;
 	for (auto& object: object_list) {
 		switch (object.type) {
-			case Tracker::ObjectType::LaserPoint: {
+			case ComputerVision::ObjectType::LaserPoint: {
 				laser_pos = object.position;
 				laser_cnt++;
 				break;
 			}
-			case Tracker::ObjectType::PaperCenter: {
+			case ComputerVision::ObjectType::PaperCenter: {
 				center_pos = object.position;
 				center_cnt++;
 				break;

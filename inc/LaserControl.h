@@ -70,7 +70,7 @@ private:
 
 	std::atomic<bool> is_running = false;
 	
-	std::vector<Tracker::ObjectInfo> object_list {};
+	std::vector<ComputerVision::ObjectInfo> object_list {};
 
 	std::thread m_thread;
 

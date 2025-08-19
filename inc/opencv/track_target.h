@@ -14,7 +14,7 @@
 #include "IntervalTimer.h"
 
 namespace ComputerVision {
-		struct HSVRange {
+	struct HSVRange {
 		cv::Scalar lower;
 		cv::Scalar upper;
 	};
@@ -25,10 +25,11 @@ namespace ComputerVision {
 	};
 
 	struct ObjectInfo {
-		cv::Point2f position;
-		cv::Vec2f velocity;
-		float radius;
-		ObjectType type;
+		cv::Point2f position {0, 0};
+		cv::Vec2f velocity {0, 0};
+		float radius = 0.0f;
+		ObjectType type = ObjectType::None;
+		cv::Scalar color = {0, 0 ,0};
 	};
 	cv::Scalar hsvToBgrAverage(const cv::Scalar& lower, const cv::Scalar& upper);
 
@@ -42,30 +43,30 @@ namespace ComputerVision {
 		void getObjectList(std::vector<ObjectInfo>& list) const;
 		// void createTask() const;
 		
+		HSVRange laser_center_range {{0, 0, 0}, {255, 255, 255}};
+		HSVRange uv_around_range {{0, 0, 0}, {255, 255, 255}};
+		HSVRange red_around_range {{0, 0, 0}, {255, 255, 255}};
 	private:
 		Tracker(const int index);
 		~Tracker();
 		Tracker() = delete;
 		
 		std::vector<ObjectInfo> m_objects {};
-
 		ROIExtractor m_extractor;
-
 		IntervalTimer m_paper_time {5};
 
 		cv::UMat m_frame;
 		cv::UMat m_draw;
 		cv::VideoCapture m_cap;
-	};
 
-	class LaserTracker {
-		ObjectInfo getLaserPos(const cv::UMat &frame, cv::UMat *draw_frame,
-								const HSVRange& hsv_r, const HSVRange& hsv_laser,
-								int min_radius = 5, int max_radius = 15);
+		static ObjectInfo getLaserPos(const cv::UMat &frame, cv::UMat *draw_frame,
+		                              const HSVRange& hsv_laser_center, const HSVRange& hsv_laser_around,
+		                              int min_radius = 5, int max_radius = 15);
 
+		static cv::UMat getLaserTrace(const cv::UMat& frame, cv::UMat* draw_frame,
+		                              const HSVRange& hsv_range);
 	};
-	cv::UMat getLaserTrace(const cv::UMat& frame, cv::UMat* draw_frame,
-			const HSVRange& hsv_range);
+	
 }
 
 

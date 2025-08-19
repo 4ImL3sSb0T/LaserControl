@@ -33,17 +33,20 @@ void Tracker::m_opencv_task() {
 		m_objects.clear();
 		static cv::Point2f last_pos {};
 		static cv::Vec2f vel {0, 0};
+		static cv::UMat roi_draw;
 		m_paper_time.TimerTrigger();
 		
 		m_cap.read(m_frame);
 		if (m_frame.empty() == true) return;
 		m_frame.copyTo(m_draw);
+		cv::blur(m_frame, m_frame, cv::Size(3, 3));
 
 		const auto roi_result = m_extractor.extractROI(m_frame, &m_draw, 80);
-		
+
 		// 添加对象信息
 		if (roi_result.roi_info.has_value()) {
 			const ROIInfo& roi_info = roi_result.roi_info.value();
+			roi_result.roi_image.copyTo(roi_draw);
 
 			if (m_paper_time.getLastTimeInterval().count() != 0) {
 				vel.val[0] = (roi_info.center.x - last_pos.x) / m_paper_time.getLastTimeInterval().count();
@@ -55,14 +58,22 @@ void Tracker::m_opencv_task() {
 				cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
 			
 			m_objects.emplace_back(ObjectInfo {
-			.position = roi_result.roi_info.value().center,
-			.velocity = vel,
-			.radius = -1,
-			.type = ObjectType::PaperCenter,
+				.position = roi_result.roi_info.value().center,
+				.velocity = vel,
+				.radius = -1,
+				.type = ObjectType::PaperCenter,
 			});
 			last_pos = roi_info.center;
+			
 			// 异步不要使用引用，会导致悬空引用
+			auto uv_laser_info = getLaserPos(roi_result.roi_image, &roi_draw,
+				laser_center_range, uv_around_range, 5, 15);
+			m_objects.emplace_back(uv_laser_info);
+
+			getLaserTrace(roi_result.roi_image, &roi_draw, uv_around_range);
+			
 			const auto& roi_frame = roi_result.roi_image;
+			cv::imshow("ROI Draw", roi_draw);
 			// TODO:使用线程池来提高效率
 
 			// 	std::future<cv::Point2f> fut = std::async(
@@ -85,8 +96,8 @@ void Tracker::getObjectList(std::vector<ObjectInfo> &list) const {
 	list = m_objects;
 }
 
-ObjectInfo LaserTracker::getLaserPos(const cv::UMat &frame, cv::UMat *draw_frame,
-							const HSVRange& hsv_r, const HSVRange& hsv_laser,
+ObjectInfo Tracker::getLaserPos(const cv::UMat &frame, cv::UMat *draw_frame,
+							const HSVRange& hsv_laser_center, const HSVRange& hsv_laser_around,
 							int min_radius, int max_radius) {
 	ObjectInfo laser_info_obj {};
 	
@@ -97,7 +108,7 @@ ObjectInfo LaserTracker::getLaserPos(const cv::UMat &frame, cv::UMat *draw_frame
 	cv::Point2f laser_pos {};
 	cv::UMat hsv, mask, opening, dilated;
 	cv::cvtColor(frame, hsv, cv::COLOR_BGR2HSV);
-	cv::inRange(hsv, hsv_r.lower, hsv_r.upper, mask);
+	cv::inRange(hsv, hsv_laser_center.lower, hsv_laser_center.upper, mask);
 	cv::morphologyEx(mask, opening, cv::MORPH_OPEN, cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3)));
 	cv::dilate(opening, dilated, cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3)));
 
@@ -110,10 +121,9 @@ ObjectInfo LaserTracker::getLaserPos(const cv::UMat &frame, cv::UMat *draw_frame
 		float best_radius = 0;
 		int area_max = 0;
 		for (const auto& circle : circles) {
-			static cv::UMat mask_color;
-			cv::inRange(hsv, hsv_laser.lower, hsv_laser.upper, mask_color);
-			static cv::UMat mask_circle = cv::UMat::zeros(mask.rows, mask.cols, mask.type());
-			mask_circle.setTo(cv::Scalar(0, 0, 0));
+			cv::UMat mask_color;
+			cv::inRange(hsv, hsv_laser_around.lower, hsv_laser_around.upper, mask_color);
+			cv::UMat mask_circle = cv::UMat::zeros(mask.rows, mask.cols, mask.type());
 			cv::circle(mask_circle, cv::Point(static_cast<int>(circle[0]), static_cast<int>(circle[1])),
 				static_cast<int>(circle[2] * 1.5), cv::Scalar(255, 255, 255), -1);
 			// 这个mask_combined是可能的激光点周围经过hsv range后的区域,目的是筛选出可能的激光点周围颜色最符合要求的点
@@ -135,6 +145,7 @@ ObjectInfo LaserTracker::getLaserPos(const cv::UMat &frame, cv::UMat *draw_frame
 			.velocity = cv::Vec2f(0, 0),
 			.radius = best_radius,
 			.type = ObjectType::LaserPoint,
+			.color = hsvToBgrAverage(hsv_laser_around.lower, hsv_laser_around.upper)
 		};
 	} else {
 		spdlog::warn("No laser detected.");
@@ -143,9 +154,9 @@ ObjectInfo LaserTracker::getLaserPos(const cv::UMat &frame, cv::UMat *draw_frame
 	return laser_info_obj;
 }
 
-cv::UMat getLaserTrace(const cv::UMat& frame, cv::UMat* draw_frame,
+cv::UMat Tracker::getLaserTrace(const cv::UMat& frame, cv::UMat* draw_frame,
 		const HSVRange& hsv_range) {
-	cv::Scalar color = hsvToBgrAverage(hsv_range.lower, hsv_range.upper);
+	const cv::Scalar color = hsvToBgrAverage(hsv_range.lower, hsv_range.upper);
 	
 	static cv::UMat last_trace;
 	cv::UMat hsv;
@@ -156,14 +167,14 @@ cv::UMat getLaserTrace(const cv::UMat& frame, cv::UMat* draw_frame,
 	last_trace = laser_trace;
 	
 	if (draw_frame != nullptr) {
-		static cv::UMat laser_trace_color = cv::UMat::zeros(draw_frame->rows, draw_frame->cols, CV_8UC3);
+		cv::UMat laser_trace_color = cv::UMat::zeros(draw_frame->rows, draw_frame->cols, CV_8UC3);
 		laser_trace_color.setTo(color, laser_trace);
 		cv::addWeighted(*draw_frame, 1, laser_trace_color, 0.5, 0.0, *draw_frame);
 	}
 	return laser_trace;
 };
 
-cv::Scalar hsvToBgrAverage(const cv::Scalar& lower, const cv::Scalar& upper) {
+cv::Scalar ComputerVision::hsvToBgrAverage(const cv::Scalar& lower, const cv::Scalar& upper) {
 	cv::Mat hsv_pixel(1, 2, CV_8UC3);
 	hsv_pixel.at<cv::Vec3b>(0,0) = cv::Vec3b(lower[0], lower[1], lower[2]);
 	hsv_pixel.at<cv::Vec3b>(0,1) = cv::Vec3b(upper[0], upper[1], upper[2]);
@@ -171,8 +182,8 @@ cv::Scalar hsvToBgrAverage(const cv::Scalar& lower, const cv::Scalar& upper) {
 	cv::Mat bgr_pixel;
 	cv::cvtColor(hsv_pixel, bgr_pixel, cv::COLOR_HSV2BGR);
 
-	cv::Vec3b bgr1 = bgr_pixel.at<cv::Vec3b>(0,0);
-	cv::Vec3b bgr2 = bgr_pixel.at<cv::Vec3b>(0,1);
+	auto bgr1 = bgr_pixel.at<cv::Vec3b>(0,0);
+	auto bgr2 = bgr_pixel.at<cv::Vec3b>(0,1);
 
 	cv::Vec3b avg_bgr(
 		(bgr1[0] + bgr2[0]) / 2,
