@@ -4,7 +4,7 @@
 
 #include "opencv/track_target.h"
 #include <chrono>
-
+using namespace ComputerVision;
 // 使用局部静态变量实现线程安全的单例（C++11及以后版本）
 Tracker& Tracker::getInstance(const int index) {
     static Tracker instance(index);
@@ -31,6 +31,9 @@ Tracker::~Tracker() {
 void Tracker::m_opencv_task() {
 	if (m_cap.isOpened()) {
 		m_objects.clear();
+		static cv::Point2f last_pos {};
+		static cv::Vec2f vel {0, 0};
+		m_paper_time.TimerTrigger();
 		
 		m_cap.read(m_frame);
 		if (m_frame.empty() == true) return;
@@ -41,6 +44,11 @@ void Tracker::m_opencv_task() {
 		// 添加对象信息
 		if (roi_result.roi_info.has_value()) {
 			const ROIInfo& roi_info = roi_result.roi_info.value();
+
+			if (m_paper_time.getLastTimeInterval().count() != 0) {
+				vel.val[0] = (roi_info.center.x - last_pos.x) / m_paper_time.getLastTimeInterval().count();
+				vel.val[1] = (roi_info.center.y - last_pos.y) / m_paper_time.getLastTimeInterval().count();
+			}
 			
 			cv::circle(m_draw, roi_info.center, 5, cv::Scalar(0, 0, 255), -1);
 			cv::putText(m_draw, std::to_string(roi_info.area), roi_info.bounds.tl(),
@@ -48,11 +56,11 @@ void Tracker::m_opencv_task() {
 			
 			m_objects.emplace_back(ObjectInfo {
 			.position = roi_result.roi_info.value().center,
-			.velocity = cv::Vec2f(0, 0),
+			.velocity = vel,
 			.radius = -1,
 			.type = ObjectType::PaperCenter,
 			});
-
+			last_pos = roi_info.center;
 			// 异步不要使用引用，会导致悬空引用
 			const auto& roi_frame = roi_result.roi_image;
 			// TODO:使用线程池来提高效率
@@ -77,10 +85,10 @@ void Tracker::getObjectList(std::vector<ObjectInfo> &list) const {
 	list = m_objects;
 }
 
-Tracker::ObjectInfo getLaserPos(const cv::UMat &frame, cv::UMat *draw_frame,
+ObjectInfo LaserTracker::getLaserPos(const cv::UMat &frame, cv::UMat *draw_frame,
 							const HSVRange& hsv_r, const HSVRange& hsv_laser,
-							int min_radius = 5, int max_radius = 15) {
-	Tracker::ObjectInfo laser_info_obj {};
+							int min_radius, int max_radius) {
+	ObjectInfo laser_info_obj {};
 	
 	if (frame.empty()) {
 		spdlog::warn("Frame is empty, cannot get laser position.");
@@ -122,11 +130,11 @@ Tracker::ObjectInfo getLaserPos(const cv::UMat &frame, cv::UMat *draw_frame,
 			cv::circle(*draw_frame, best_point, static_cast<int>(best_radius), cv::Scalar(0, 0, 255), 2);
 			cv::putText(*draw_frame, "Laser", best_point, cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
 		}
-		laser_info_obj = Tracker::ObjectInfo {
+		laser_info_obj = ObjectInfo {
 			.position = best_point,
 			.velocity = cv::Vec2f(0, 0),
 			.radius = best_radius,
-			.type = Tracker::ObjectType::LaserPoint,
+			.type = ObjectType::LaserPoint,
 		};
 	} else {
 		spdlog::warn("No laser detected.");
@@ -137,7 +145,8 @@ Tracker::ObjectInfo getLaserPos(const cv::UMat &frame, cv::UMat *draw_frame,
 
 cv::UMat getLaserTrace(const cv::UMat& frame, cv::UMat* draw_frame,
 		const HSVRange& hsv_range) {
-	constexpr auto color = cv::Scalar(0, 0, 255);
+	cv::Scalar color = hsvToBgrAverage(hsv_range.lower, hsv_range.upper);
+	
 	static cv::UMat last_trace;
 	cv::UMat hsv;
 	cv::UMat laser_trace = cv::UMat::zeros(frame.rows, frame.cols, CV_8UC1);
@@ -153,6 +162,26 @@ cv::UMat getLaserTrace(const cv::UMat& frame, cv::UMat* draw_frame,
 	}
 	return laser_trace;
 };
+
+cv::Scalar hsvToBgrAverage(const cv::Scalar& lower, const cv::Scalar& upper) {
+	cv::Mat hsv_pixel(1, 2, CV_8UC3);
+	hsv_pixel.at<cv::Vec3b>(0,0) = cv::Vec3b(lower[0], lower[1], lower[2]);
+	hsv_pixel.at<cv::Vec3b>(0,1) = cv::Vec3b(upper[0], upper[1], upper[2]);
+
+	cv::Mat bgr_pixel;
+	cv::cvtColor(hsv_pixel, bgr_pixel, cv::COLOR_HSV2BGR);
+
+	cv::Vec3b bgr1 = bgr_pixel.at<cv::Vec3b>(0,0);
+	cv::Vec3b bgr2 = bgr_pixel.at<cv::Vec3b>(0,1);
+
+	cv::Vec3b avg_bgr(
+		(bgr1[0] + bgr2[0]) / 2,
+		(bgr1[1] + bgr2[1]) / 2,
+		(bgr1[2] + bgr2[2]) / 2
+	);
+
+	return cv::Scalar(avg_bgr[0], avg_bgr[1], avg_bgr[2]);
+}
 
 
 

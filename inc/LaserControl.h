@@ -78,12 +78,14 @@ private:
 	int mode_track(uint32_t interval);
 	int mode_draw(uint32_t interval);
 
-	std::string rx_buffer{};
+	std::string rx_buffer {};
 
 	PIDControllor pid_x, pid_y;
 
 	std::mutex m_mutex;
 	std::condition_variable m_cv;
+
+	cv::UMat target_trace;
 
 };
 

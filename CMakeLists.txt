@@ -24,6 +24,7 @@ add_executable(LaserControl ${SOURCES}
         src/PIDControllor.cpp
         src/opencv/track_target.cpp
         src/opencv/roi_extractor.cpp
+        src/IntervalTimer.cpp
 )
 
 target_include_directories(LaserControl PRIVATE

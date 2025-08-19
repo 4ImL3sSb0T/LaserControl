@@ -11,14 +11,13 @@
 #include <future>
 
 #include "opencv/roi_extractor.h"
+#include "IntervalTimer.h"
 
-struct HSVRange {
-	cv::Scalar lower;
-	cv::Scalar upper;
-};
-
-class Tracker {
-public:
+namespace ComputerVision {
+		struct HSVRange {
+		cv::Scalar lower;
+		cv::Scalar upper;
+	};
 	enum class ObjectType {
 		None,
 		PaperCenter,
@@ -31,37 +30,43 @@ public:
 		float radius;
 		ObjectType type;
 	};
+	cv::Scalar hsvToBgrAverage(const cv::Scalar& lower, const cv::Scalar& upper);
 
-	// 删除构造函数，使用getInstance替代
-	static Tracker& getInstance(const int index);
-	Tracker(const Tracker&) = delete;
-	Tracker& operator=(const Tracker&) = delete;
-	void m_opencv_task();
-	void getObjectList(std::vector<ObjectInfo>& list) const;
-	// void createTask() const;
-	
-private:
-	Tracker(const int index);
-	~Tracker();
-	Tracker() = delete;
-	
-	std::vector<ObjectInfo> m_objects {};
+	class Tracker {
+	public:
+		// 删除构造函数，使用getInstance替代
+		static Tracker& getInstance(const int index);
+		Tracker(const Tracker&) = delete;
+		Tracker& operator=(const Tracker&) = delete;
+		void m_opencv_task();
+		void getObjectList(std::vector<ObjectInfo>& list) const;
+		// void createTask() const;
+		
+	private:
+		Tracker(const int index);
+		~Tracker();
+		Tracker() = delete;
+		
+		std::vector<ObjectInfo> m_objects {};
 
-	ROIExtractor m_extractor;
+		ROIExtractor m_extractor;
 
-	cv::UMat m_frame;
-	cv::UMat m_draw;
-	cv::VideoCapture m_cap;
+		IntervalTimer m_paper_time {5};
 
-	ObjectInfo getLaserPos(const cv::UMat &frame, cv::UMat *draw_frame,
-							const HSVRange& hsv_r, const HSVRange& hsv_laser,
-							int min_radius = 5, int max_radius = 15);
+		cv::UMat m_frame;
+		cv::UMat m_draw;
+		cv::VideoCapture m_cap;
+	};
+
+	class LaserTracker {
+		ObjectInfo getLaserPos(const cv::UMat &frame, cv::UMat *draw_frame,
+								const HSVRange& hsv_r, const HSVRange& hsv_laser,
+								int min_radius = 5, int max_radius = 15);
+
+	};
 	cv::UMat getLaserTrace(const cv::UMat& frame, cv::UMat* draw_frame,
-		const HSVRange& hsv_range);
-};
+			const HSVRange& hsv_range);
+}
 
-class LaserTracker {
-	
-};
 
 #endif //TRACK_TARGET_H
