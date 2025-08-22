@@ -1,0 +1,44 @@
+﻿{
+  "name": "uv_laser",
+  "description": "UV Laser",
+  "version": "1.0.0",
+  "laser_center_hsv_range": [
+    [0, 0, 0],
+    [0, 0, 0]
+  ],
+  "laser_around_hsv_range": [
+    [0, 0, 0],
+    [0, 0, 0]
+  ],
+  "gray_threshold": 80,
+  "roi_min_area": 100,
+  "roi_crop_percent": 0.1,
+  "camera_exposure": -5,
+  "camera_width": 1200,
+  "camera_height": 800,
+  "camera_fps": 60,
+  "hough_min_radius": 5,
+  "hough_max_radius": 15,
+  "motor_speed": 100,
+  "pid_parameters": [{
+    "motor_x":{
+    "kp": 1.0,
+    "ki": 0.1,
+    "kd": 0.01,
+    "sample_time_ms": 10,
+    "max_output": 1000.0,
+    "max_integral": 100.0
+    }
+    }, {
+    "motor_y":{
+      "kp": 1.0,
+      "ki": 0.1,
+      "kd": 0.01,
+      "sample_time_ms": 10,
+      "max_output": 1000.0,
+      "max_integral": 100.0
+      }
+  }],
+  "task_interval": 10,
+  "serial_timeout": 1000
+}

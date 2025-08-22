@@ -4,14 +4,43 @@
 #include <iostream>
 #include <fmt/core.h>
 #include <spdlog/spdlog.h>
+#include <nlohmann/json.hpp>
+#include <fstream>
+#include <filesystem>
 
 // #include "../backup/ImRadFixed.h"
 #include "Application.h"
 #include "serial/serial.h"
 #include "LaserControl.h"
 
+
 int main() {
-	auto* serial = new serial::Serial();
+	namespace fs = std::filesystem;
+	std::string config_path = "../config";
+	std::vector<std::string> config_list;
+
+	for (const auto& entry : fs::directory_iterator(config_path)) {
+		static int file_index = 0;
+		if (entry.is_regular_file()) { // 判断是否为普通文件
+			config_list.push_back(entry.path().string());
+			std::cout << "Index: "<< file_index << " | " << entry.path().string() << std::endl;
+			file_index++;
+		}
+	}
+	std::cout << "Total config files: " << config_list.size() << std::endl;
+	std::cout << "Please select a config file: " << std::endl;
+	int user_choice = 0;
+	std::cin >> user_choice;
+	if (user_choice < config_list.size() && user_choice >= 0) {
+		std::cout << "Selected config file: " << config_list[user_choice] << std::endl;
+		std::ifstream config_file(config_list[user_choice]);
+		nlohmann::json config;
+		config = nlohmann::json::parse(config_file);
+		std::cout << config.dump(2) << std::endl;
+	} else {
+		spdlog::error("Not Available");
+	}
+	
 	
 	sf::RenderWindow window(sf::VideoMode(1200, 800), "Control Panel");
 	window.setFramerateLimit(60);
@@ -66,4 +95,6 @@ int main() {
 	application.Close();
 	ImGui::SFML::Shutdown();
 	return 0;
+
+
 }

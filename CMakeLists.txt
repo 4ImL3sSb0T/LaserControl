@@ -11,6 +11,7 @@ find_package(ImGui-SFML CONFIG REQUIRED)
 find_package(OpenCV CONFIG REQUIRED)
 find_package(fmt CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     find_library(SERIAL_STATIC serial ${PROJECT_SOURCE_DIR}/lib/static/debug)
@@ -55,6 +56,7 @@ target_link_libraries(LaserControl PRIVATE
         ImGui-SFML::ImGui-SFML
         fmt::fmt
         spdlog::spdlog
+        nlohmann_json::nlohmann_json
 )
 
 
