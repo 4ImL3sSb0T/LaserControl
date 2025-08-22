@@ -30,11 +30,12 @@ Tracker::~Tracker() {
 
 void Tracker::m_opencv_task() {
 	if (m_cap.isOpened()) {
+		m_frame_fps.TimerTrigger();
+		m_paper_time.TimerTrigger();
 		m_objects.clear();
 		static cv::Point2f last_pos {};
 		static cv::Vec2f vel {0, 0};
 		static cv::UMat roi_draw;
-		m_paper_time.TimerTrigger();
 		
 		m_cap.read(m_frame);
 		if (m_frame.empty() == true) return;
@@ -42,7 +43,8 @@ void Tracker::m_opencv_task() {
 		cv::blur(m_frame, m_frame, cv::Size(3, 3));
 
 		const auto roi_result = m_extractor.extractROI(m_frame, &m_draw, 80);
-
+		cv::putText(m_draw, "FPS: " + std::to_string(1.0f / m_frame_fps.getLastTimeInterval().count()),
+			cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
 		// 添加对象信息
 		if (roi_result.roi_info.has_value()) {
 			const ROIInfo& roi_info = roi_result.roi_info.value();

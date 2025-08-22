@@ -59,7 +59,7 @@ public:
 	size_t SetMotorPulse(MotorIndex motor, uint32_t speed, int32_t pulse) const;
 	
 	MachineState m_state = MachineState::Idle;
-	MachineMode m_mode = MachineMode::Manual;
+	MachineMode m_mode = MachineMode::Track;
 private:
 	// serial::Serial* m_serial = nullptr;
 	std::shared_ptr<serial::Serial> m_serial = nullptr;

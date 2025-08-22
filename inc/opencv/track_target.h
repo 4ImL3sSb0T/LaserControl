@@ -43,8 +43,8 @@ namespace ComputerVision {
 		void getObjectList(std::vector<ObjectInfo>& list) const;
 		// void createTask() const;
 		
-		HSVRange laser_center_range {{0, 0, 0}, {255, 255, 255}};
-		HSVRange uv_around_range {{0, 0, 0}, {255, 255, 255}};
+		HSVRange laser_center_range {{0, 0, 160}, {255, 255, 255}};
+		HSVRange uv_around_range {{139, 61, 62}, {148, 255, 207}};
 		HSVRange red_around_range {{0, 0, 0}, {255, 255, 255}};
 	private:
 		Tracker(const int index);
@@ -54,6 +54,7 @@ namespace ComputerVision {
 		std::vector<ObjectInfo> m_objects {};
 		ROIExtractor m_extractor;
 		IntervalTimer m_paper_time {5};
+		IntervalTimer m_frame_fps {5};
 
 		cv::UMat m_frame;
 		cv::UMat m_draw;
@@ -61,7 +62,7 @@ namespace ComputerVision {
 
 		static ObjectInfo getLaserPos(const cv::UMat &frame, cv::UMat *draw_frame,
 		                              const HSVRange& hsv_laser_center, const HSVRange& hsv_laser_around,
-		                              int min_radius = 5, int max_radius = 15);
+		                              int min_radius = 5, int max_radius = 150);
 
 		static cv::UMat getLaserTrace(const cv::UMat& frame, cv::UMat* draw_frame,
 		                              const HSVRange& hsv_range);

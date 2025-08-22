@@ -90,13 +90,13 @@ ROIResult ROIExtractor::extractROI(const cv::UMat& frame, cv::UMat* draw_frame, 
     cv::bitwise_not(closed, closed);
     
     // 调试显示 - 注意：这需要从GPU内存下载数据
-    if (cv::ocl::useOpenCL()) {
-        cv::Mat closed_mat;
-        closed.copyTo(closed_mat);
-        cv::imshow("closed", closed_mat);
-    } else {
-        cv::imshow("closed", closed.getMat(cv::ACCESS_READ));
-    }
+    // if (cv::ocl::useOpenCL()) {
+    //     cv::Mat closed_mat;
+    //     closed.copyTo(closed_mat);
+    //     cv::imshow("closed", closed_mat);
+    // } else {
+    //     cv::imshow("closed", closed.getMat(cv::ACCESS_READ));
+    // }
     
     std::vector<std::vector<cv::Point>> contours;
     // 轮廓查找需要在CPU上进行

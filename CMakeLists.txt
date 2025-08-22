@@ -12,7 +12,11 @@ find_package(OpenCV CONFIG REQUIRED)
 find_package(fmt CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 
-find_library(SERIAL_STATIC serial ${PROJECT_SOURCE_DIR}/lib/static)
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    find_library(SERIAL_STATIC serial ${PROJECT_SOURCE_DIR}/lib/static/debug)
+else()
+    find_library(SERIAL_STATIC serial ${PROJECT_SOURCE_DIR}/lib/static/release)
+endif()
 
 aux_source_directory(${PROJECT_SOURCE_DIR}/src SOURCES)
 
